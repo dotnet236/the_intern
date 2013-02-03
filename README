@@ -1,0 +1,162 @@
+
+the_intern:
+  Command Line Usage:
+    the_intern start
+
+  Flow
+    For each project
+      create a new shell
+      cd into the projects directory
+      If the git repo already exists
+        cd into the repository
+        git fetch from the remote
+        If fetch fails
+          Send error message through GNTP to host
+        else
+          git reset hard to the remote branch
+      If the git repo does not exist
+        clone the git repository
+        If clone fails
+          Send error message through GNTP to host
+        else
+          cd into the repository
+          execute the install commands
+      execute the start commands
+    Each interval
+      For each project
+        Poll for changes
+          Get latest remote SHA
+            git ls-remote {remote-repo}
+          Get latest local SHA
+            git rev-parse HEAD
+          if difference in SHA's
+            git fetch from the remote
+            git reset hard to the remotes branch
+      For each project modified
+        For each file modified
+          If files changed are just specs
+            Run those specs with format doc
+              If an error is encountered
+                Send error message through GNTP to host
+          If none of the files changed are specs
+            Locate correlating files by name.
+              For each file modified
+                Split file_name on delineaters ['-', '_']
+                  For each section of the file name
+                    Find specs which are similar
+                      find . -name "*#{section}*"
+              Order list of similar files based on occurences found and then remove duplicates
+                Ex: ['first_spec.rb', 'second_spec.rb', 'second_spec.rb'] -> ['second_spec.rb', 'first_spec.rb']
+              For each similar spec
+                Run the spec with format doc
+                  If an error is encountered
+                    Send error message through GNTP to host
+              If no errors are found
+                Send success message through GNTP to host "All 'similar' tests pass for #{project}"
+      Poll to see if any projects have changed
+        If not projects have changed
+          For each project modified
+            For each spec not run in the modified project
+              run spec
+              If an error is encountered
+                Send error message through GNTP to host
+            If no errors are found
+              Send success message through GNTP to host "All tests pass on #{project}"
+          Poll to see if any projects have changed
+            If not projects have changed
+              For each project unmodified
+                For each spec in the project
+              run spec
+              If an error is encountered
+                Send error message through GNTP to host
+            If no errors are found
+              Send success message through GNTP to host "All tests pass on #{project}"
+        If no errors are found in any of the projects
+          Send success message through GNTP to host "All tests pass in the entire suite!"
+
+
+Config File: my_intern.yml
+  growl_message_receiptant: 'acaponemac1.roving.com'
+  git_polling_internval: 1 #Seconds
+  projects:
+    auth-platform:
+      git_url: github..../something.git
+      git_branch: feature-VN-1601 #default 'master'
+      install_commands: [
+        'curl -o /c/msysgit/msysgit/opt/cc/etc/services.properties github.roving.com/acapone/gists/services.properties'
+        'mvn initialize',
+        'mvn process_test_resources'
+      ]
+      start_commands:[
+        'rails s -p 3001'
+      ]
+    auth-devportal:
+      github_url: github..../something.git
+      install_commands: [
+        'mvn initialize'
+      ]
+    auth-editors:
+      github_url: github..../something.git
+      install_commands: [
+        'bundle install'
+      ]
+
+Install Instructions:
+
+1.) Install MySysGit, http://code.google.com/p/msysgit/downloads/detail?name=msysGit-fullinstall-1.8.1-preview20130110.exe&can=2&q=
+  * This took awhile (5 minutes) to install
+2.) Install Java JDK 1.7
+3.) Install jRuby
+    cd c:
+    curl http://jruby.org.s3.amazonaws.com/downloads/1.6.7/jruby-bin-1.6.7.tar.gz -o jruby.tar.gz
+    tar -xvf jruby.tar.gz
+4.) Install MySql
+    Download and run http://dev.mysql.com/get/Downloads/MySQL-5.5/mysql-5.5.29-win32.msi/from/http://cdn.mysql.com/
+    Use all default options, EXCEPT make sure to install with an anonymous user account
+5.) Install Cassandra
+    cd c:
+    curl http://www.apache.org/dyn/closer.cgi?path=/cassandra/1.2.0/apache-cassandra-1.2.0-bin.tar.gz -o cassandra.tar.gz
+    tar -xvf cassandra.tar.gz
+
+6.) Set environment variables
+    Right click on MyComputer icon, click properties
+    Click Advanced Settings button
+    Click Advanced tab
+    Click environment variables button
+    Click new button under system variables
+    Add
+      JRUBY_HOME = c:\jruby-1.8.7\bin
+      JAVA_HOME = c:\Program Files\jdk1.70
+      CASSANDRA_HOME = c:\apache-cassandra-1.2.0
+      SERVICES_ENV = local
+      RAILS_ENV = production
+    Modify
+      PATH = %JRUBY_HOME%:%CASSANDRA_HOME%:WhateverWasAlreadyHere
+7.) mvn install
+8.) mvn initialize
+9.) Install bundler
+    $JRUBY_HOME/gem install bundler -v="~>1.0.22"
+10.) Install rails
+    $JRUBY_HOME/gem install rails -v="3.2.1"
+11.) Install rake
+    $JRUBY_HOME/gem install rake -v="0.9.2.2"
+    $JRUBY_HOME/gem uninstall rake -v="10.0.3" #It just works, stop asking
+12.) Clone Repositories
+    cd c:
+    mkdir projects
+    cd projects
+    git clone http://github.roving.com/{YourFork}/auth-platform/
+    git clone http://github.roving.com/{YourFork}/auth-devportal/
+    git clone http://github.roving.com/{YourFork}/auth-editors/
+13.) Install project gems
+    cd auth-platform/auth-platform-webapp
+    jruby --1.9 -S bundle install
+    cd auth-platform/auth-devportal-webapp
+    jruby --1.9 -S bundle install
+    cd auth-editors
+    jruby --1.9 -S bundle install
+14.) Start Cassandra
+    Open Command Prompt 'Run As Administrator'
+    cd c:\
+    apache-cassandra-1.2.0/bin/cassandra.bat
+
